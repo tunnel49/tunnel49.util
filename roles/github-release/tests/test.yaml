@@ -1,0 +1,28 @@
+---
+
+- hosts: localhost
+  connection: local
+  vars:
+    ansible_test: True
+  tasks:
+  - name: download latest release
+    import_role: 
+      name: github-release
+    vars:
+      token: "{{ my_github_token }}"
+      repo: tunnel49/MonoLisa
+      asset: MonoLisa-otf.tgz 
+      dest: .
+
+  - name: download specific release
+    import_role: 
+      name: github-release
+    vars:
+      token: "{{ my_github_token }}"
+      repo: tunnel49/MonoLisa   # user/repo
+      asset: MonoLisa-otf.tgz 
+      dest: .
+      version: v1.801.0
+      name: monolisa.tgz
+      unzip: false
+

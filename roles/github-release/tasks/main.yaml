@@ -1,0 +1,57 @@
+---
+
+- ansible.builtin.import_tasks: assertions.yaml
+
+- name:
+  block:
+  - name: github request releases
+    changed_when: false
+    failed_when: false
+    ansible.builtin.uri:
+      headers:
+        Authorization: token {{ token }}
+        Accept: application/vnd.github.v3.raw
+      url: https://{{ github }}/repos/{{ repo }}/releases
+    register: github_release_request
+      #no_log: "{{ not (insecure_log_output | d( false ) | bool ) }}"
+  - name: github request release 
+    ansible.builtin.debug:
+      var: github_release_request 
+      verbosity: 2
+  - name: delayed failure
+    ansible.builtin.fail:
+      msg: | 
+        failed to query github release:
+    when: github_release_request.failed
+
+- name: Process release
+  import_tasks: process.yaml
+  vars:
+    _json: >-
+      {{ github_release_request.json }}
+    _release: >-
+      {{ 
+      _json[0] if ( version == 'latest' ) else
+      _json
+      | selectattr( 'tag_name', 'equalto', version )
+      | first
+      | d( none )
+      }}
+    _tag: >-
+      {{ _release.tag_name | d( none ) }}
+    _ver: >-
+      {{ _tag[1:] if (_tag[0] and _tag[0] == 'v') else none }}
+    _asset: >-
+      {{
+      (
+      none if _release.assets | length == 0 else
+      _release.assets
+      | selectattr( 'name', 'equalto', asset )
+      | first
+      | d( none )
+      )
+      }}
+    _id: >-
+      {{ _asset.id | d( none ) }}
+    _metadata_path: >-
+      {{ dest }}/.{{ asset }}-{{ repo | replace('/','-') }}.json

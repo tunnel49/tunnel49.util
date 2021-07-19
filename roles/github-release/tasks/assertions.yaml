@@ -1,0 +1,27 @@
+---
+
+- name: check required parameters
+  ansible.builtin.assert:
+    that:
+    - token is defined
+    - repo is defined
+    - repo is match("[a-z0-9\-_.]*\/[a-z0-9\-_.]*")
+    - asset is defined
+    - dest is defined
+    msg: |
+      Usage:
+
+      import_role: github-release
+      vars:
+        token: <github token>
+        repo: <user/repo>
+        asset: <filename>
+        dest: <destination directory/file>
+        [version: <version>]
+        [unzip: <boolean>]
+      
+      You had:
+        token: "{{ '<redacted>' if not (insecure_log_output | d( false ) ) else (token | d ("<empty>")) }}"
+        repo: "{{ repo | d( "<empty>" ) }}"
+        asset: "{{ asset | d( "<empty>" ) }}"
+        dest: "{{ dest | d( "<empty>" ) }}"

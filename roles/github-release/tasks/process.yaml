@@ -1,0 +1,137 @@
+---
+- name: verify asset metadata
+  assert:
+    that:
+    - _id is defined and _id
+    - _tag is defined and _tag
+    - _ver is defined and _ver
+    - _ver is version('0.0.0-0', '>=', version_type='semver')
+    fail_msg: Couldn't get asset metadata
+
+- name: Check current file metadata
+  ansible.builtin.slurp:
+    src: >-
+      {{ _metadata_path }}
+  register: _metadata_result
+  failed_when: false
+
+- name: Compare versions and download
+  vars:
+    _content: >- 
+      {{
+      {} if not 'content' in _metadata_result else
+      _metadata_result.content 
+      | b64decode 
+      | from_json
+      }}
+    _local_ver: >-
+      {{ _content.version | d( '0.0.0-0' ) }}
+    _local_files: >-
+      {{ _content.files | d( [] ) }}
+    _local_checksums: >-
+      {{ _content.checksums | d( [] ) }}
+    _is_upgrade: >-
+      {{ _ver is version(_local_ver, '>', version_type='semver') }}
+  block:
+  - name: get local file checksums
+    stat:
+      name: >-
+        {{ item }}
+      get_attributes: false
+      get_mime: false
+    loop: >-
+      {{ _local_files }}
+    register: _disk_file_meta
+
+  - name: Download and unpack files
+    when: _checksumdiff or _is_upgrade
+    vars:
+      _disk_checksums: >-
+        {{ 
+        _disk_file_meta.results
+        | map(attribute='stat')
+        | map(attribute='checksum')
+        | select('defined')
+        }}
+      _checksumdiff: >-
+        {{ 
+        (_disk_checksums 
+        | symmetric_difference(_local_checksums) 
+        | length) > 0 
+        }}
+    block:
+    - debug:
+        var: _checksumdiff
+    - debug:
+        var: _is_upgrade
+    - name: create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: _tempdir
+      changed_when: false
+    - name: download asset
+      ansible.builtin.get_url:
+        headers:
+          Authorization: token {{ token }}
+          Accept: application/octet-stream
+        url: >-
+          https://{{ token }}:@{{ github }}/repos/{{ repo }}/releases/assets/{{ _id }}
+        dest: >-
+          {{ _tempdir.path }}
+      register: _download_result
+
+    - name: unpack asset
+      ansible.builtin.unarchive:
+        src: >-
+          {{ _download_result.dest }}
+        list_files: true
+        dest: >-
+          {{ dest }}
+      register: _unarchive_result
+
+    - name: remove old files
+      loop: >-
+        {{ _local_files | difference( _unarchive_result.files ) }}
+      ansible.builtin.file:
+        path: >-
+          {{ item }}
+        state: absent
+
+    - name: get new file checksums
+      stat:
+        name: >-
+          {{ item }}
+        get_attributes: false
+        get_mime: false
+      loop: >-
+        {{ _unarchive_result.files }}
+      register: _new_file_meta
+
+    - name: write new meta to disk
+      vars:
+        _new_checksums: >-
+          {{
+          _new_file_meta.results
+          | map(attribute='stat')
+          | map(attribute='checksum')
+          | select('defined')
+          }}
+      copy: 
+        dest: >-
+          {{ _metadata_path }}
+        content: >-
+          {{ 
+          { 'version': _ver
+          , 'files': _unarchive_result.files
+          , 'checksums': _new_checksums
+          }
+          | to_nice_json
+          }} 
+    always:
+    - name: delete temporary directory
+      when: not _tempdir.failed
+      ansible.builtin.file:
+        path: >-
+          {{ _tempdir.path }}
+        state: absent
+      changed_when: false

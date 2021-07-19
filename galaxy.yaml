@@ -1,0 +1,15 @@
+---
+
+namespace: tunnel49
+name: util
+version: ##VERSION##
+readme: README.md
+license_file: LICENCE.md
+authors: [Pontus Lundgren <pontus@tunnel49.net>]
+description: General purpose utility functions for playbooks
+tags: []
+dependencies: {}
+repository: https://www.github.com/tunnel49/tunnel49.util
+homepage:   https://www.github.com/tunnel49/tunnel49.util
+build_ignore: []
+
