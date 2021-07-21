@@ -2,7 +2,7 @@
 
 namespace: tunnel49
 name: util
-version: ##VERSION##
+version: devel
 readme: README.md
 license_file: LICENCE.md
 authors: [Pontus Lundgren <pontus@tunnel49.net>]
