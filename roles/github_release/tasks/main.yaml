@@ -18,11 +18,12 @@
     ansible.builtin.debug:
       var: github_release_request 
       verbosity: 2
+
   - name: delayed failure
     ansible.builtin.fail:
       msg: | 
-        failed to query github release:
-    when: github_release_request.failed
+        failed to query github release
+    when: not github_release_request.status in [200]
 
 - name: Process release
   import_tasks: process.yaml
