@@ -85,6 +85,7 @@
         src: >-
           {{ _download_result.dest }}
         list_files: true
+        remote_src: true
         dest: >-
           {{ dest }}
       register: _unarchive_result
